@@ -45,7 +45,7 @@ function love.load()
     local modes = love.graphics.getModes()
     table.sort(modes, function(a, b) return a.width*a.height < b.width*b.height end)   -- sort from smallest to largest
     fullscreenWidth, fullscreenHeight = modes[#modes].width, modes[#modes].height
-
+    toggleFullscreen()
 
     if arg[2] then info.filename = arg[2] end
 
@@ -65,6 +65,31 @@ function love.load()
 
     resources:load()
     loadTrack()
+
+    --[[ renderinfo = {}
+    renderinfo.width = 800
+    renderinfo.height = 600
+    renderinfo.frameRate = 25
+    render(renderinfo, 1, info.sampleRate * 3)
+    love.event.quit()
+    ]]
+end
+
+function processAudio()
+    if currentVisualizerInfo.generateFFT then
+        buffer = {}
+        for i = 1, BUFFER do
+            buffer[i] = soundData:getSample(info.sample + i)
+        end
+
+        info.fft = fft(buffer, false)
+        info.fftFreq = {}
+        for i = 1, #info.fft / 2 do
+            local a = math.sqrt(info.fft[i][1] ^ 2 + info.fft[i][2] ^ 2)
+            local f = i * info.sampleRate / BUFFER
+            info.fftFreq[f] = a
+        end
+    end
 end
 
 function love.update(dt)
@@ -76,23 +101,26 @@ function love.update(dt)
     if soundData and soundSource then
         info.position = soundSource:tell("seconds")
         info.sample = soundSource:tell("samples")
-
-        if currentVisualizerInfo.generateFFT then
-            buffer = {}
-            for i = 1, BUFFER do
-                buffer[i] = soundData:getSample(info.sample + i)
-            end
-
-            info.fft = fft(buffer, false)
-            info.fftFreq = {}
-            for i = 1, #info.fft / 2 do
-                local a = math.sqrt(info.fft[i][1] ^ 2 + info.fft[i][2] ^ 2)
-                local f = i * info.sampleRate / BUFFER
-                info.fftFreq[f] = a
-            end
-        end
-
+        processAudio()
         currentVisualizer:update(dt)
+    end
+end
+
+function drawMetainfo()
+    if currentVisualizerInfo.drawMetainfo then
+        -- TITLE
+        love.graphics.setColor(255, 255, 255)
+        love.graphics.setFont(resources.fonts.normal)
+        love.graphics.print(info.title, 20, love.graphics.getHeight() - 100)
+
+        -- ARTIST
+        love.graphics.setColor(255, 255, 255, 128)
+        love.graphics.setFont(resources.fonts.small)
+        love.graphics.print(info.artist, 20, love.graphics.getHeight() - 65)
+
+        -- TIME
+        s = clock(info.position)  .. " - " .. clock(info.duration)
+        love.graphics.print(s, 20, love.graphics.getHeight() - 40)
     end
 end
 
@@ -145,21 +173,7 @@ function love.draw()
                 50)
         end
 
-        if currentVisualizerInfo.drawMetainfo then
-            -- TITLE
-            love.graphics.setColor(255, 255, 255)
-            love.graphics.setFont(resources.fonts.normal)
-            love.graphics.print(info.title, 20, love.graphics.getHeight() - 100)
-
-            -- ARTIST
-            love.graphics.setColor(255, 255, 255, 128)
-            love.graphics.setFont(resources.fonts.small)
-            love.graphics.print(info.artist, 20, love.graphics.getHeight() - 65)
-
-            -- TIME
-            s = clock(info.position)  .. " - " .. clock(info.duration)
-            love.graphics.print(s, 20, love.graphics.getHeight() - 40)
-        end
+        drawMetainfo()
     end
 end
 
@@ -207,5 +221,33 @@ function loadTrack()
     info.length = soundData:getSize() * 8 / soundData:getBits() / soundData:getChannels()
     info.sampleRate = soundData:getSampleRate()
     info.duration = info.length / info.sampleRate
+end
+
+function render(renderinfo, sampleStart, sampleEnd)
+    soundSource:pause()
+    love.graphics.setMode(renderinfo.width, renderinfo.height, false, false)
+    local frameRate = renderinfo.frameRate
+    local samplesPerFrame = info.sampleRate / frameRate
+    local frames = (sampleEnd - sampleStart) / samplesPerFrame
+    local startFrame = sampleStart / samplesPerFrame
+    print("Starting render")
+    print("")
+
+    for frame = startFrame, startFrame + frames do
+        io.write(string.format("\rRendering frame: %04.f of %04.f (%.04f%%)", frame, frames, frame / frames * 100))
+        -- fake audio position
+        info.sample = math.floor(sampleStart + frame * samplesPerFrame)
+        info.position = info.sample / info.sampleRate
+        processAudio()
+        currentVisualizer:update(1 / frameRate)
+        currentVisualizer:draw()
+        drawMetainfo()
+
+        -- render to PNG
+        local s = love.graphics.newScreenshot()
+        s:encode(string.format("%04.f.png", frame))
+    end
+    print()
+    print("Rendering done")
 end
 
