@@ -1,0 +1,6 @@
+[submodule "externals/luafft"]
+	path = externals/luafft
+	url = git://github.com/vection/LuaFFT.git
+[submodule "externals/luaid3"]
+	path = externals/luaid3
+	url = git://gist.github.com/1162235.git
