@@ -9,7 +9,6 @@ function Parts:__init(image, buffer)
     self.minY = 0
     self.maxY = 0
 
-    self.accu = 0
     self.eR = 0
 end
 
@@ -18,20 +17,29 @@ function Parts:setEmissionRate(rate)
     self.p:setEmissionRate(rate)
 end
 
+function Parts:doUpdate(dt)
+    self.p:setPosition(
+        self.minX + math.random() * (self.maxX - self.minX),
+        self.minY + math.random() * (self.maxY - self.minY))
+    self.p:update(dt)
+end
+
 function Parts:update(dt)
-    self.accu = self.accu + dt
-    local et = 1 / self.eR
-    local x, y = self.p:getPosition()
+    local accu = dt
 
-    while self.accu > et do
-        self.accu = self.accu - et
-        self.p:setPosition(
-            self.minX + math.random() * (self.maxX - self.minX),
-            self.minY + math.random() * (self.maxY - self.minY))
-        self.p:update(et)
+    if self.eR == 0 then
+        self.p:update(accu)
+    else
+        local et = 1 / self.eR
+        local x, y = self.p:getPosition()
+
+        while accu > et do
+            accu = accu - et
+            self:doUpdate(et)
+        end
+        self:doUpdate(accu)
+        self.p:setPosition(x, y)
     end
-
-    self.p:setPosition(x, y)
 end
 
 
@@ -45,30 +53,39 @@ function V:__init()
     Visualizer.__init(self)
 
     self.h = 0
+    self.prevSample = 0
 end
 
 function V:update(dt)
     self.h = self.h + dt * 20
-    r,g,b = hsl2rgb(self.h, 100, 100)
+    local r,g,b = hsv2rgb(self.h / 360, 0.5, 0.5)
+    local r2,g2,b2 = hsv2rgb(self.h / 360, 1, 0.8)
     love.graphics.setBackgroundColor(r, g, b)
 
     self.parts.p:setColors(
+        r2, g2, b2, 255,
+        r, g, b, 255,
+        r, g, b, 255,
         r, g, b, 255,
         r, g, b, 0)
     self.parts:update(dt)
-
-    self.parts:setEmissionRate(math.min(self.h, 300))
+    --self.parts:setEmissionRate(math.min(self.h * 10, 300))
+    self.parts:setEmissionRate(math.min(300, info.amplitude * 1000))
+    if self.prevSample == info.sample then
+        self.parts:setEmissionRate(0)
+    end
+    self.prevSample = info.sample
 end
 
 function V:draw()
     local b = 0
     local bars = 140
-    local w = love.graphics.getWidth() - b * 2
+    local w = WIDTH - b * 2
     local ww = math.floor(w / bars)
     w = bars * ww
-    b = (love.graphics.getWidth() - w) / 2
-    local h = love.graphics.getHeight() / 2 - 100
-    local y = love.graphics.getHeight() / 2
+    b = (WIDTH - w) / 2
+    local h = HEIGHT / 2 - 100
+    local y = HEIGHT / 2
 
     self.parts.minX = b
     self.parts.maxX = b + w
@@ -81,8 +98,8 @@ function V:draw()
         0,
         0,
         0,
-        love.graphics.getWidth() / 1000,
-        love.graphics.getHeight() / 1000)
+        WIDTH / 1000,
+        HEIGHT / 1000)
 
     love.graphics.setBlendMode("additive")
 
@@ -108,13 +125,13 @@ function V:draw()
         -- v = v / BUFFER * 1000
         v = values[i] / 100 -- / m
 
-        local R,G,B = hsl2rgb(self.h, 100, 100)
+        local R,G,B = hsv2rgb(self.h / 360, 0.5, 0.5)
         love.graphics.setColor(R, G, B)
         --[[love.graphics.rectangle("fill",
             x + b,
             0,
             ww - 1,
-            love.graphics.getHeight()) ]]
+            HEIGHT) ]]
 
         --love.graphics.setColor(255, 255, 255)
         --[[ love.graphics.rectangle("fill",
@@ -124,7 +141,7 @@ function V:draw()
             v * h) ]]
 
         local bW = math.max(ww - 5, 3)
-        local bH = v * h
+        local bH = v * h + 1
 
         local sx = bW / 20
         local sy = bH / 200
@@ -187,13 +204,15 @@ function V:load()
 
     self.parts = Parts(self.resources.images.particle, 1000)
     self.parts.p:setLifetime(-1)
-    self.parts.p:setParticleLife(3)
+    self.parts.p:setParticleLife(2)
     self.parts:setEmissionRate(0)
     self.parts.p:setDirection(math.pi / 2)
     self.parts.p:setSpeed(100)
     self.parts.p:setGravity(90)
-    self.parts.p:setSizes(3 / 32, 1 / 32)
-    self.parts.p:setSizeVariation(1)
+    self.parts.p:setSizes(
+        3 / 32,
+        1 / 32
+    )
 end
 
 function V:conf()

@@ -6,8 +6,6 @@ resources = Resources("data/")
 soundData = nil
 soundSource = nil
 
-frame = 0
-
 -- CURRENT STATE INFORMATION ABOUT THE SONG
 info = {}
 info.filename = "data/test.mp3"
@@ -28,6 +26,8 @@ info.fft = nil
 info.amplitude = 0
 
 BUFFER = 2048
+WIDTH = 600
+HEIGHT = 400
 
 currentVisualizer = nil
 currentVisualizerInfo = {}
@@ -110,13 +110,10 @@ function love.load()
     resources:load()
     loadTrack()
 
-    --[[renderinfo = {}
-    renderinfo.width = 1920
-    renderinfo.height = 1080
-    renderinfo.frameRate = 25
-    render(renderinfo, 1, info.length)
-    love.event.quit()]]
-
+    if false then
+        render()
+        love.event.quit()
+    end
 end
 
 function processAudio()
@@ -162,16 +159,16 @@ function drawMetainfo()
         -- TITLE
         love.graphics.setColor(255, 255, 255)
         love.graphics.setFont(resources.fonts.normal)
-        love.graphics.print(info.title, 20, love.graphics.getHeight() - 100)
+        love.graphics.print(info.title, 20, HEIGHT - 100)
 
         -- ARTIST
         love.graphics.setColor(255, 255, 255, 128)
         love.graphics.setFont(resources.fonts.small)
-        love.graphics.print(info.artist, 20, love.graphics.getHeight() - 65)
+        love.graphics.print(info.artist, 20, HEIGHT - 65)
 
         -- TIME
         s = clock(info.position)  .. " - " .. clock(info.duration)
-        love.graphics.print(s, 20, love.graphics.getHeight() - 40)
+        love.graphics.print(s, 20, HEIGHT - 40)
     end
 
     if debug then
@@ -185,8 +182,8 @@ function love.draw()
     if not soundData then
         s = "loading"
         love.graphics.print(s,
-            love.graphics.getWidth() / 2 - love.graphics.getFont():getWidth(s) / 2,
-            love.graphics.getHeight() / 2 - love.graphics.getFont():getHeight() / 2)
+            WIDTH / 2 - love.graphics.getFont():getWidth(s) / 2,
+            HEIGHT / 2 - love.graphics.getFont():getHeight() / 2)
         loadFile = true
     end
 
@@ -202,23 +199,15 @@ function love.draw()
             local h = 100
             if a > 1 then a = 1 end
             love.graphics.setColor(0, 0, 0, 100 * a)
-            love.graphics.rectangle("fill",
-                love.graphics.getWidth() / 2 - w / 2,
-                0, -- love.graphics.getHeight() / 2 - h / 2,
-                w,
-                h)
+            love.graphics.rectangle("fill", WIDTH / 2 - w / 2, 0, w, h)
             love.graphics.setColor(255, 255, 255, a * 255)
             love.graphics.setFont(resources.fonts.normal)
-            love.graphics.print(currentVisualizerInfo.name,
-                love.graphics.getWidth() / 2 - nameWidth / 2,
-                20)
+            love.graphics.print(currentVisualizerInfo.name, WIDTH / 2 - nameWidth / 2, 20)
 
             love.graphics.setColor(255, 255, 255, a * 128)
             love.graphics.setFont(resources.fonts.small)
 
-            love.graphics.print(currentVisualizerInfo.author,
-                love.graphics.getWidth() / 2 - authorWidth / 2,
-                50)
+            love.graphics.print(currentVisualizerInfo.author, WIDTH / 2 - authorWidth / 2, 50)
         end
 
         drawMetainfo()
@@ -227,11 +216,15 @@ end
 
 function toggleFullscreen()
     if isFullscreen then
-        love.graphics.setMode(defaultWidth, defaultHeight, false)
+        WIDTH = defaultWidth
+        HEIGHT = defaultHeight
+
     else
-        love.graphics.setMode(fullscreenWidth, fullscreenHeight, true)
+        WIDTH = fullscreenWidth
+        HEIGHT = fullscreenHeight
     end
     isFullscreen = not isFullscreen
+    love.graphics.setMode(WIDTH, HEIGHT, isFullscreen)
 end
 
 function love.keypressed(k, u)
@@ -242,8 +235,8 @@ function love.keypressed(k, u)
     elseif k == "i" then
         infoFade = 5
     elseif k == "p" then
-        saveFrame(frame)
-        frame = frame + 1
+        local s = love.graphics.newScreenshot()
+        s:encode("screenshot.png")
     elseif k == "right" then
         nextVisualizer()
     elseif k == "left" then
@@ -277,44 +270,80 @@ function loadTrack()
     info.length = soundData:getSize() * 8 / soundData:getBits() / info.channels
     info.sampleRate = soundData:getSampleRate()
     info.duration = info.length / info.sampleRate
+
+    -- soundSource:seek(info.duration - 10, "seconds")
 end
 
 function render(renderinfo, sampleStart, sampleEnd)
+    renderinfo = renderinfo or {}
+    renderinfo.width = renderinfo.width or 1920
+    renderinfo.height = renderinfo.height or 1080
+    renderinfo.framerate = renderinfo.framerate or 25
+    renderinfo.extension = renderinfo.extension or "jpg"
+
+    love.graphics.setMode(600, 400, false, false)
+    WIDTH, HEIGHT = renderinfo.width, renderinfo.height
+    canvas = love.graphics.newCanvas(WIDTH, HEIGHT)
+
+    sampleStart = sampleStart or 1
+    sampleEnd = sampleEnd or info.length
+
     soundSource:pause()
     debug = false
-    love.graphics.setMode(renderinfo.width, renderinfo.height, false, false)
-    local frameRate = renderinfo.frameRate
-    local samplesPerFrame = info.sampleRate / frameRate
+    local samplesPerFrame = info.sampleRate / renderinfo.framerate
     local frames = (sampleEnd - sampleStart) / samplesPerFrame
     local startFrame = sampleStart / samplesPerFrame
-    print("Starting render")
     print("")
+    print(string.format("Starting Render at %sx%s as %s", renderinfo.width, renderinfo.height, renderinfo.extension))
 
     local startTime = love.timer.getTime()
 
     for frame = startFrame, startFrame + frames do
         local t = love.timer.getTime() - startTime
         local fps = frame / t
-        io.write(string.format("\rRendering frame: %04.f of %04.f (%.04f%%) - %03.1f FPS - ETA %s", frame, frames, frame / frames * 100, fps, clock(frames / fps)))
-        io.flush()
 
         -- fake audio position
+        love.event.pump()
+        for e,a,b,c,d in love.event.poll() do
+            if e == "quit" then
+                print("")
+                print("Aborted.")
+                return
+            end
+            love.handlers[e](a,b,c,d)
+        end
         info.sample = math.floor(sampleStart + frame * samplesPerFrame)
         info.position = info.sample / info.sampleRate
         processAudio()
-        currentVisualizer:update(1 / frameRate)
+        currentVisualizer:update(1 / renderinfo.framerate)
+        -- love.graphics.clear()
+        canvas:clear()
+        love.graphics.setCanvas(canvas)
         currentVisualizer:draw()
         drawMetainfo()
-        love.graphics.present()
 
-        -- render to PNG
-        saveFrame(frame)
+        io.write(string.format("\rFrame %04.f of %04.f (%.01f%%) - % 4.1f FPS - ETA %s", frame + 1, frames, (frame + 1) / frames * 100, fps, clock((frames - (frame + 1)) / fps)))
+        io.flush()
+
+        -- local s = love.graphics.newScreenshot()
+        local s = canvas:getImageData()
+        s:encode(string.format("%04.f.%s", frame, renderinfo.extension))
+
+        love.graphics.setCanvas()
+        love.graphics.setBackgroundColor(0, 0, 0)
+        love.graphics.clear()
+        local img = love.graphics.newImage(canvas:getImageData())
+        love.graphics.draw(img, 0, 0, 0, 600 / WIDTH, 600 / WIDTH)
+        local perc = string.format("%.01f%%", (frame + 1) / frames * 100)
+        perc = "Rendering " .. perc .. " done - " .. clock((frames - (frame + 1)) / fps) .. " left"
+        love.graphics.setFont(resources.fonts.small)
+        love.graphics.setColor(255, 255, 255)
+        love.graphics.print(perc, 300 - love.graphics.getFont():getWidth(perc) / 2, 355)
+        love.graphics.present()
     end
     print()
-    print("Rendering done")
-end
-
-function saveFrame(frame)
-    local s = love.graphics.newScreenshot()
-    s:encode(string.format("%04.f.png", frame))
+    print(string.format("Rendering done in %s.", clock(love.timer.getTime() - startTime)))
+    print()
+    print("Now go to the output directory and execute:")
+    print("$ ffmpeg -i %04d." .. renderinfo.extension .. " -i path/to/music.mp3 -framerate 25 -c:a copy movie.mp4")
 end

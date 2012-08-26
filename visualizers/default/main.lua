@@ -18,22 +18,23 @@ function V:update(dt)
     -- a = math.log10(a / BUFFER + 1) * 100
 
     self.accu = self.accu * (1 - f) + a * f
-
-    local r,g,b = hsv2rgb(self.lifetime * 0.05, 1, 0.5)
-    love.graphics.setBackgroundColor(r, g, b)
 end
 
 function V:draw()
+    local r,g,b = hsv2rgb((self.lifetime * 0.05) % 1, 1, 0.5)
+    love.graphics.setColor(r, g, b)
+    love.graphics.rectangle("fill", 0, 0, WIDTH, HEIGHT)
+
     love.graphics.setColor(255, 255, 255)
     love.graphics.rectangle("fill",
         0,
-        love.graphics.getHeight() / 2 - 100 * self.accu,
-        love.graphics.getWidth(),
+        HEIGHT / 2 - 100 * self.accu,
+        WIDTH,
         -10)
     love.graphics.rectangle("fill",
         0,
-        love.graphics.getHeight() / 2 + 100 * self.accu,
-        love.graphics.getWidth(),
+        HEIGHT / 2 + 100 * self.accu,
+        WIDTH,
         10)
 end
 
