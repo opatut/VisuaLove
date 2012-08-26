@@ -99,8 +99,8 @@ function V:draw()
         local y = v * HEIGHT / 10
 
         if prevX ~= -1 then
-            glowShape(r, g, b, 255, "line", prevX, HEIGHT / 2 + prevY, x, HEIGHT / 2 + y)
-            glowShape(r, g, b, 255, "line", prevX, HEIGHT / 2 - prevY, x, HEIGHT / 2 - y)
+            glowShape(r, g, b, 255, "line", prevX + 1, HEIGHT / 2 + prevY, x, HEIGHT / 2 + y)
+            glowShape(r, g, b, 255, "line", prevX + 1, HEIGHT / 2 - prevY, x, HEIGHT / 2 - y)
             -- glowShape(255, 255, 255, "circle", x, y, 10, 10)
         end
 
