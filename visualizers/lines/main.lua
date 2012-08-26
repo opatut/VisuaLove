@@ -48,9 +48,16 @@ DUR = 4
 
 function V:__init()
     Visualizer.__init(self)
-    self.lifetime = 0
+    self.lifetime = 2
     self.accu = 0
     self.values = {}
+
+    local a = info.amplitude
+    for i = - DUR / 2 * 100, DUR / 2 * 100 do
+        info.amplitude = getAmplitudeAt(info.sample + math.floor(i * 0.01 * info.sampleRate))
+        self:update(0.01)
+    end
+    info.amplitude = a
 end
 
 function V:update(dt)
