@@ -67,6 +67,60 @@ function hsl2rgb(h, s, l)
    return math.ceil((r+m)*256),math.ceil((g+m)*256),math.ceil((b+m)*256)
 end
 
+function average(list)
+    a = 0
+    n = 0
+    for k,v in pairs(list) do
+        a = a + v
+        n = n + 1
+    end
+    if n == 0 then return 0 end
+    return a / n
+end
+
+-- transforms to logarithmic scale
+function logF(f, w)
+    local maxFreq = info.sampleRate / 2
+    local minFreq = info.sampleRate / BUFFER
+    return math.log10(f - minFreq + 1) / math.log10(maxFreq - minFreq + 1) * w
+end
+
+-----------------------------
+-- HSV > RGB color conversion
+-----------------------------
+-- adapted from:
+-- http://mjijackson.com/2008/02/rgb-to-hsl-and-rgb-to-hsv-color-model-conversion-algorithms-in-javascript
+-----------------------------
+function hsv2rgb(h, s, v)
+  local r, g, b
+
+  local i = math.floor(h * 6)
+  local f = h * 6 - i
+  local p = v * (1 - s)
+  local q = v * (1 - f * s)
+  local t = v * (1 - (1 - f) * s)
+
+  local switch = i % 6
+  if switch == 0 then
+    r = v g = t b = p
+  elseif switch == 1 then
+    r = q g = v b = p
+  elseif switch == 2 then
+    r = p g = v b = t
+  elseif switch == 3 then
+    r = p g = q b = v
+  elseif switch == 4 then
+    r = t g = p b = v
+  elseif switch == 5 then
+    r = v g = p b = q
+  end
+
+  return math.floor(r*255), math.floor(g*255), math.floor(b*255)
+
+end
+
+
+
 function clock(seconds)
     if seconds <= 0 then
         --return nil;

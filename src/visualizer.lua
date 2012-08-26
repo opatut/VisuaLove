@@ -3,7 +3,7 @@ require("util/resources")
 
 Visualizer = class("Visualizer")
 
-function Visualizer:__init() 
+function Visualizer:__init()
     self.resources = Resources("visualizers/" .. self:conf().identity .. "/")
 end
 
@@ -23,5 +23,6 @@ function Visualizer:conf()
     conf.author = "opatut"
     conf.generateFFT = true
     conf.generateAmplitude = true
+    conf.timeOffset = 0
     return conf]]
 end

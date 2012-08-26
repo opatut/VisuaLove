@@ -1,10 +1,12 @@
 require("util/resources")
-luafft = require("luafft")
 id3 = require("id3")
+require("fftdata")
 
 resources = Resources("data/")
 soundData = nil
 soundSource = nil
+
+frame = 0
 
 -- CURRENT STATE INFORMATION ABOUT THE SONG
 info = {}
@@ -21,7 +23,9 @@ info.duration = 0 -- in seconds
 info.sample = 0 -- sample number
 info.length = 0 -- sample length
 info.sampleRate = 0 -- samples per second
-info.fft = {}
+info.channels = 2
+info.fft = nil
+info.amplitude = 0
 
 BUFFER = 2048
 
@@ -30,6 +34,19 @@ currentVisualizerInfo = {}
 
 isFullscreen = false
 infoFade = 0
+debug = true
+
+function getVisualizers()
+    l = love.filesystem.enumerate("visualizers/")
+    vis = {}
+    for n, f in pairs(l) do
+        if love.filesystem.isDirectory("visualizers/" .. f) and
+            love.filesystem.isFile("visualizers/" .. f .. "/main.lua") then
+                table.insert(vis, f)
+        end
+    end
+    return vis
+end
 
 function setVisualizer(v)
     local cls = require("visualizers/" .. v .. "/main")
@@ -39,6 +56,33 @@ function setVisualizer(v)
     infoFade = 5
 end
 
+function nextVisualizer()
+    vis = getVisualizers()
+    current = 0
+    for n, f in pairs(vis) do
+        if f == currentVisualizerInfo.identity then
+            current = n
+        end
+    end
+
+    if current == #vis then current = 1
+    else current = current + 1 end
+    setVisualizer(vis[current])
+end
+
+function previousVisualizer()
+    vis = getVisualizers()
+    current = #vis
+    for n, f in pairs(vis) do
+        if f == currentVisualizerInfo.identity then
+            current = n
+        end
+    end
+
+    if current == 1 then current = #vis
+    else current = current - 1 end
+    setVisualizer(vis[current])
+end
 
 function love.load()
     defaultWidth, defaultHeight = love.graphics.getWidth(), love.graphics.getHeight()
@@ -66,29 +110,36 @@ function love.load()
     resources:load()
     loadTrack()
 
-    --[[ renderinfo = {}
-    renderinfo.width = 800
-    renderinfo.height = 600
+    --[[renderinfo = {}
+    renderinfo.width = 1920
+    renderinfo.height = 1080
     renderinfo.frameRate = 25
-    render(renderinfo, 1, info.sampleRate * 3)
-    love.event.quit()
-    ]]
+    render(renderinfo, 1, info.length)
+    love.event.quit()]]
+
 end
 
 function processAudio()
-    if currentVisualizerInfo.generateFFT then
-        buffer = {}
-        for i = 1, BUFFER do
-            buffer[i] = soundData:getSample(info.sample + i)
-        end
+    local gF, gA = currentVisualizerInfo.generateFFT, currentVisualizerInfo.generateAmplitude
+    local tO = currentVisualizerInfo.timeOffset
 
-        info.fft = fft(buffer, false)
-        info.fftFreq = {}
-        for i = 1, #info.fft / 2 do
-            local a = math.sqrt(info.fft[i][1] ^ 2 + info.fft[i][2] ^ 2)
-            local f = i * info.sampleRate / BUFFER
-            info.fftFreq[f] = a
+    if gF then
+        local buffer = {}
+        for i = 1, BUFFER do
+            buffer[i] = soundData:getSample((info.sample + tO * info.sampleRate + i)  * info.channels)
         end
+        info.fft = FftData(buffer)
+    end
+
+    if gA then
+        local ampBuffer = 32
+        local amp = 0
+
+        for i = 1, ampBuffer do
+            local s = soundData:getSample((info.sample + tO * info.sampleRate + i) * info.channels)
+            amp = amp + math.abs(s)
+        end
+        info.amplitude = amp / ampBuffer
     end
 end
 
@@ -107,7 +158,7 @@ function love.update(dt)
 end
 
 function drawMetainfo()
-    if currentVisualizerInfo.drawMetainfo then
+    if currentVisualizerInfo.displayMetainfo then
         -- TITLE
         love.graphics.setColor(255, 255, 255)
         love.graphics.setFont(resources.fonts.normal)
@@ -122,6 +173,12 @@ function drawMetainfo()
         s = clock(info.position)  .. " - " .. clock(info.duration)
         love.graphics.print(s, 20, love.graphics.getHeight() - 40)
     end
+
+    if debug then
+        love.graphics.setColor(255, 255, 255, 100)
+        love.graphics.setFont(resources.fonts.lcd)
+        love.graphics.print(string.format("%03.f", love.timer.getFPS()), 5, 5)
+    end
 end
 
 function love.draw()
@@ -131,16 +188,7 @@ function love.draw()
             love.graphics.getWidth() / 2 - love.graphics.getFont():getWidth(s) / 2,
             love.graphics.getHeight() / 2 - love.graphics.getFont():getHeight() / 2)
         loadFile = true
-    elseif fftData then
-
-        for k,v in pairs(fftData) do
-            -- print (k .. "\t=> " .. v)
-        end
     end
-
-    love.graphics.setColor(255, 255, 255, 100)
-    love.graphics.setFont(resources.fonts.lcd)
-    love.graphics.print(string.format("%03.f", love.timer.getFPS()), 5, 5)
 
     if soundSource then
         currentVisualizer:draw()
@@ -193,6 +241,13 @@ function love.keypressed(k, u)
         toggleFullscreen()
     elseif k == "i" then
         infoFade = 5
+    elseif k == "p" then
+        saveFrame(frame)
+        frame = frame + 1
+    elseif k == "right" then
+        nextVisualizer()
+    elseif k == "left" then
+        previousVisualizer()
     end
 end
 
@@ -208,7 +263,7 @@ function loadTrack()
     soundSource:play()
 
     local ptr, size = soundData:getPointer()
-    local ids = id3.readtags(info.filename)
+    local ids = id3.readtags(info.filename) or {}
 
     info.title = ids.title or info.filename
     info.album = ids.album or ""
@@ -218,13 +273,15 @@ function loadTrack()
     info.track = ids.track or 0
     info.year = ids.year or 0
 
-    info.length = soundData:getSize() * 8 / soundData:getBits() / soundData:getChannels()
+    info.channels = soundData:getChannels()
+    info.length = soundData:getSize() * 8 / soundData:getBits() / info.channels
     info.sampleRate = soundData:getSampleRate()
     info.duration = info.length / info.sampleRate
 end
 
 function render(renderinfo, sampleStart, sampleEnd)
     soundSource:pause()
+    debug = false
     love.graphics.setMode(renderinfo.width, renderinfo.height, false, false)
     local frameRate = renderinfo.frameRate
     local samplesPerFrame = info.sampleRate / frameRate
@@ -233,8 +290,14 @@ function render(renderinfo, sampleStart, sampleEnd)
     print("Starting render")
     print("")
 
+    local startTime = love.timer.getTime()
+
     for frame = startFrame, startFrame + frames do
-        io.write(string.format("\rRendering frame: %04.f of %04.f (%.04f%%)", frame, frames, frame / frames * 100))
+        local t = love.timer.getTime() - startTime
+        local fps = frame / t
+        io.write(string.format("\rRendering frame: %04.f of %04.f (%.04f%%) - %03.1f FPS - ETA %s", frame, frames, frame / frames * 100, fps, clock(frames / fps)))
+        io.flush()
+
         -- fake audio position
         info.sample = math.floor(sampleStart + frame * samplesPerFrame)
         info.position = info.sample / info.sampleRate
@@ -242,12 +305,16 @@ function render(renderinfo, sampleStart, sampleEnd)
         currentVisualizer:update(1 / frameRate)
         currentVisualizer:draw()
         drawMetainfo()
+        love.graphics.present()
 
         -- render to PNG
-        local s = love.graphics.newScreenshot()
-        s:encode(string.format("%04.f.png", frame))
+        saveFrame(frame)
     end
     print()
     print("Rendering done")
 end
 
+function saveFrame(frame)
+    local s = love.graphics.newScreenshot()
+    s:encode(string.format("%04.f.png", frame))
+end
