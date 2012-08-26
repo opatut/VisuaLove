@@ -248,7 +248,20 @@ function love.quit()
 end
 
 function loadTrack()
-    local decoder = love.sound.newDecoder(info.filename)
+    local file = nil
+    if love.filesystem.isFile(info.filename) then
+        file = love.filesystem.newFile(info.filename)
+    else
+        file = love.filesystem.newFile(io.open(info.filename, "r"))
+    end
+
+    if not file then
+        print("Cannot load file: " .. info.filename)
+        love.event.quit()
+        return
+    end
+
+    local decoder = love.sound.newDecoder(file)
     soundData = love.sound.newSoundData(decoder)
 
     print("Loaded " .. soundData:getSize() .. " bytes of music.")
