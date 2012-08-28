@@ -45,9 +45,9 @@ function copyTrack(from)
 end
 
 function loadTrack()
-    local file = nil
-
+    local path = info.filename
     if not love.filesystem.isFile(info.filename) then
+        print("Need to copy.")
         local fn = info.filename
 
         local i, l = string.find(fn, "%..*$")
@@ -57,6 +57,7 @@ function loadTrack()
         print("Found at", i, l, ext, info.filename)
 
         copyTrack(fn)
+        path = love.filesystem.getSaveDirectory( ) .. "/" .. info.filename
     end
 
     file = love.filesystem.newFile(info.filename)
@@ -75,7 +76,7 @@ function loadTrack()
     soundSource:play()
 
     local ptr, size = soundData:getPointer()
-    local ids = id3.readtags(love.filesystem.getSaveDirectory( ) .. "/" .. info.filename) or {}
+    local ids = id3.readtags(path) or {}
 
     info.title = ids.title or info.filename
     info.album = ids.album or ""

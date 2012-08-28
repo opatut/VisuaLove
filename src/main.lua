@@ -2,6 +2,7 @@ require("util/resources")
 id3 = require("id3")
 require("fftdata")
 require("audio")
+require("util/getopt_alt")
 
 resources = Resources("data/")
 soundData = nil
@@ -86,17 +87,15 @@ function previousVisualizer()
 end
 
 function love.load()
+    opts = getopt(arg, "frvwh")
+    info.filename = opts.f or "data/test.mp3"
+    setVisualizer(opts.v or "default")
+
     defaultWidth, defaultHeight = love.graphics.getWidth(), love.graphics.getHeight()
     local modes = love.graphics.getModes()
     table.sort(modes, function(a, b) return a.width*a.height < b.width*b.height end)   -- sort from smallest to largest
     fullscreenWidth, fullscreenHeight = modes[#modes].width, modes[#modes].height
     toggleFullscreen()
-
-    if arg[2] then info.filename = arg[2] end
-
-    vis = "default"
-    if arg[3] then vis = arg[3] end
-    setVisualizer(vis)
 
     math.randomseed(os.time())
 
@@ -111,8 +110,11 @@ function love.load()
     resources:load()
     loadTrack()
 
-    if false then
-        render()
+    if opts.r ~= nil then
+        local i = {}
+        i.width = opts.w or 1920
+        i.height = opts.h or 1080
+        render(i)
         love.event.quit()
     end
 end
