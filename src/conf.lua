@@ -1,15 +1,15 @@
 function love.conf(t)
     t.title = "visuaLove"
     t.author = "opatut"
-    t.identity = "visualove"
-    t.version = "0.8.0" -- Löve version
+    t.identity = "opatut_visualove"
+    t.version = "0.10.1" -- Löve version
     t.console = false
     t.release = false
-    t.screen.width = 800
-    t.screen.height = 600
-    t.screen.fullscreen = false
-    t.screen.vsync = true
-    t.screen.fsaa = 0
+    t.window.width = 800
+    t.window.height = 600
+    t.window.fullscreen = false
+    t.window.vsync = true
+    t.window.fsaa = 0
 
     t.modules.joystick = false
     t.modules.audio = true

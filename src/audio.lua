@@ -87,7 +87,7 @@ function loadTrack()
     info.year = ids.year or 0
 
     info.channels = soundData:getChannels()
-    info.length = soundData:getSize() * 8 / soundData:getBits() / info.channels
+    info.length = soundData:getSize() * 8 / soundData:getBitDepth() / info.channels
     info.sampleRate = soundData:getSampleRate()
     info.duration = info.length / info.sampleRate
 

@@ -39,7 +39,7 @@ infoFade = 0
 debug = true
 
 function getVisualizers()
-    l = love.filesystem.enumerate("visualizers/")
+    l = love.filesystem.getDirectoryItems("visualizers/")
     vis = {}
     for n, f in pairs(l) do
         if love.filesystem.isDirectory("visualizers/" .. f) and
@@ -92,7 +92,7 @@ function love.load()
     setVisualizer(opts.v or "default")
 
     defaultWidth, defaultHeight = love.graphics.getWidth(), love.graphics.getHeight()
-    local modes = love.graphics.getModes()
+    local modes = love.window.getFullscreenModes()
     table.sort(modes, function(a, b) return a.width*a.height < b.width*b.height end)   -- sort from smallest to largest
     fullscreenWidth, fullscreenHeight = modes[#modes].width, modes[#modes].height
     toggleFullscreen()
@@ -205,7 +205,7 @@ function toggleFullscreen()
         HEIGHT = fullscreenHeight
     end
     isFullscreen = not isFullscreen
-    love.graphics.setMode(WIDTH, HEIGHT, isFullscreen)
+    love.window.setMode(WIDTH, HEIGHT, {fullscreen=isFullscreen})
 end
 
 function love.keypressed(k, u)
@@ -235,7 +235,7 @@ function render(renderinfo, sampleStart, sampleEnd)
     renderinfo.framerate = renderinfo.framerate or 25
     renderinfo.extension = renderinfo.extension or "jpg"
 
-    love.graphics.setMode(600, 400, false, false)
+    love.window.setMode(600, 400, {fullscreen=false})
     WIDTH, HEIGHT = renderinfo.width, renderinfo.height
     canvas = love.graphics.newCanvas(WIDTH, HEIGHT)
 

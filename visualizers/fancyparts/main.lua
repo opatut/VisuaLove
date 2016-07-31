@@ -101,7 +101,7 @@ function V:draw()
         WIDTH / 1000,
         HEIGHT / 1000)
 
-    love.graphics.setBlendMode("additive")
+    love.graphics.setBlendMode("add")
 
     local df = info.sampleRate / BUFFER
     local fPerBar = (BUFFER / 2) / bars
@@ -203,12 +203,12 @@ function V:load()
     self.resources:load()
 
     self.parts = Parts(self.resources.images.particle, 1000)
-    self.parts.p:setLifetime(-1)
-    self.parts.p:setParticleLife(2)
+    self.parts.p:setEmitterLifetime(-1)
+    self.parts.p:setParticleLifetime(2)
     self.parts:setEmissionRate(0)
     self.parts.p:setDirection(math.pi / 2)
     self.parts.p:setSpeed(100)
-    self.parts.p:setGravity(90)
+    self.parts.p:setLinearAcceleration(0, 90)
     self.parts.p:setSizes(
         3 / 32,
         1 / 32
